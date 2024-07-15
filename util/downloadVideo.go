@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"main/db"
+	"main/prisma/db"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,43 +21,54 @@ type RedditVideo struct {
 	Height      int    `json:"height,omitempty"`
 	Width       int    `json:"width,omitempty"`
 	DashUrl     string `json:"dash_url,omitempty"`
-	IsGift      bool   `json:"is_gif,omitempty"`
+	IsGif       bool   `json:"is_gif,omitempty"`
 	HlsUrl      string `json:"hls_url,omitempty"`
 }
 
 type Media struct {
-	RedditVideo RedditVideo `json:"reddit_video,omitempty"`
+	RedditVideo *RedditVideo `json:"reddit_video,omitempty"`
 }
 
 type DataPost struct {
-	Selftext  string `json:"selftext"`
-	Subreddit string `json:"subreddit"`
-	Saved     bool   `json:"saved"`
-	Downs     int    `json:"downs"`
-	Name      string `json:"name"`
-	Domain    string `json:"domain"`
-	Score     int    `json:"score"`
-	Media     Media  `json:"media"`
-	Id        string `json:"id"`
-	Thumbnail string `json:"thumbnail,omitempty"`
-	Title     string `json:"title"`
+	Selftext       string `json:"selftext"`
+	Subreddit      string `json:"subreddit"`
+	Saved          bool   `json:"saved"`
+	Downs          int    `json:"downs"`
+	Name           string `json:"name"`
+	Domain         string `json:"domain"`
+	Score          int    `json:"score"`
+	Media          *Media `json:"media"`
+	Id             string `json:"id"`
+	Thumbnail      string `json:"thumbnail,omitempty"`
+	Title          string `json:"title"`
+	Subreddit_Name string `json:"subreddit_name_prefixed"`
+	Author         string `json:"author,omitempty"`
 }
 
 type Children struct {
-	Kind string   `json:"kind"`
-	Data DataPost `json:"data"`
+	Kind string    `json:"kind"`
+	Data *DataPost `json:"data"`
 }
 
 type Data struct {
-	After     bool       `json:"after"`
-	Modhash   string     `json:"modhash"`
-	GeoFilter string     `json:"geo_filter"`
-	Before    bool       `json:"before"`
-	Children  []Children `json:"children"`
+	After     bool        `json:"after"`
+	Modhash   string      `json:"modhash"`
+	GeoFilter string      `json:"geo_filter"`
+	Before    bool        `json:"before"`
+	Children  []*Children `json:"children"`
 }
 
 type List struct {
 	Data Data `json:"data,omitempty"`
+}
+
+type DownloadedVideo struct {
+	id         string      `json:"id"`
+	post_title string      `json:"post_title"`
+	date       db.DateTime `json:"date"`
+	post_url   string      `json:"post_url"`
+	author     string      `json:"author"`
+	subreddit  string      `json:"subreddit"`
 }
 
 func ReturnJson(video_url string) (error, []List) {
@@ -74,7 +85,6 @@ func ReturnJson(video_url string) (error, []List) {
 	if err != nil {
 		return errors.New("Something gone wrong."), nil
 	}
-	fmt.Println(redditUrl.Host)
 
 	if redditUrl.Host != "www.reddit.com" && redditUrl.Host != "reddit.com" {
 		return errors.New("Host should be reddit.com or www.reddit.com"), nil
@@ -163,7 +173,7 @@ func GetVideoId(uri string) (string, error) {
 	return split[len(split)-1], nil
 }
 
-func DownloadRedditVideo(uri string) (error, string) {
+func DownloadRedditVideo(uri string, downloadIp string) (error, string) {
 
 	videoId, err := GetVideoId(uri) // get videoId from path
 	if err != nil {
@@ -186,60 +196,67 @@ func DownloadRedditVideo(uri string) (error, string) {
 		return err, ""
 	}
 
-	videoInfo := struct {
-		DashUrl     string
-		AudioUrl    string
-		OldAudioUrl string
-	}{
-		DashUrl:     response[0].Data.Children[0].Data.Media.RedditVideo.FallbackUrl,
-		AudioUrl:    fmt.Sprintf("https://v.redd.it/%s/DASH_AUDIO_128.mp4", strings.Split(response[0].Data.Children[0].Data.Media.RedditVideo.FallbackUrl, "/")[3]),
-		OldAudioUrl: fmt.Sprintf("https://v.redd.it/%s/DASH_audio.mp4", strings.Split(response[0].Data.Children[0].Data.Media.RedditVideo.FallbackUrl, "/")[3]),
-	} // create a map to store the response body
+	if response[0].Data.Children[0].Data.Media != nil || response[0].Data.Children[0].Data.Media.RedditVideo != nil {
+		videoInfo := struct {
+			DashUrl     string
+			AudioUrl    string
+			OldAudioUrl string
+		}{
+			DashUrl:     response[0].Data.Children[0].Data.Media.RedditVideo.FallbackUrl,
+			AudioUrl:    fmt.Sprintf("https://v.redd.it/%s/DASH_AUDIO_128.mp4", strings.Split(response[0].Data.Children[0].Data.Media.RedditVideo.FallbackUrl, "/")[3]),
+			OldAudioUrl: fmt.Sprintf("https://v.redd.it/%s/DASH_audio.mp4", strings.Split(response[0].Data.Children[0].Data.Media.RedditVideo.FallbackUrl, "/")[3]),
+		} // create a map to store the response body
 
-	dashPath := fmt.Sprintf("./tmp/v/%s.mp4", response[0].Data.Children[0].Data.Id)
-	audioPath := fmt.Sprintf("./tmp/a/%s.mp4", response[0].Data.Children[0].Data.Id)
-	outputPath := fmt.Sprintf("./tmp/%s.mp4", response[0].Data.Children[0].Data.Id)
+		dashPath := fmt.Sprintf("./tmp/v/%s.mp4", response[0].Data.Children[0].Data.Id)
+		audioPath := fmt.Sprintf("./tmp/a/%s.mp4", response[0].Data.Children[0].Data.Id)
+		outputPath := fmt.Sprintf("./tmp/%s.mp4", response[0].Data.Children[0].Data.Id)
 
-	if _, err := os.Stat(outputPath); err == nil {
+		if _, err := os.Stat(outputPath); err == nil {
+			return nil, response[0].Data.Children[0].Data.Id
+		}
+
+		if err := DownloadFile(dashPath, videoInfo.DashUrl); err != nil {
+			return err, "" // return the error and an empty string
+		}
+		if err := DownloadFile(audioPath, videoInfo.AudioUrl); err != nil {
+			if err := DownloadFile(audioPath, videoInfo.OldAudioUrl); err != nil {
+				return err, "" // return the error and an empty string
+			}
+		}
+		cmd := exec.Command("ffmpeg", "-i", dashPath, "-i", audioPath, "-c:v", "copy", "-c:a", "copy", outputPath) // create the command
+		if err := cmd.Run(); err != nil {
+			return err, "" // return the error and an empty string
+		}
+		time.Sleep(1 * time.Second) // wait for 1 second
+
+		if err := os.Remove(dashPath); err != nil { // Delete the unused file.
+			// Ignore the error
+			log.Fatal(err)
+		}
+
+		if err := os.Remove(audioPath); err != nil { // Delete the unused file.
+			// Ignore the error
+			log.Fatal(err)
+		}
+
+		created, err := database.Post.CreateOne(
+			db.Post.ID.Set(response[0].Data.Children[0].Data.Id),
+			db.Post.PostTitle.Set(response[0].Data.Children[0].Data.Title),
+			db.Post.Thumbnail.Set(strings.Replace(response[0].Data.Children[0].Data.Thumbnail, "amp;", "", -1)),
+			db.Post.PostURL.Set(uri),
+			db.Post.Author.Set(response[0].Data.Children[0].Data.Author),
+			db.Post.Subreddit.Set(response[0].Data.Children[0].Data.Subreddit_Name),
+			db.Post.DownloadedIP.Set(downloadIp),
+		).Exec(ctx) // create a new post
+		_ = created // ignore the created object
+
+		if err != nil {
+			return err, "" // return the error and an empty string
+		}
 		return nil, response[0].Data.Children[0].Data.Id
 	}
 
-	if err := DownloadFile(dashPath, videoInfo.DashUrl); err != nil {
-		return err, "" // return the error and an empty string
-	}
-	if err := DownloadFile(audioPath, videoInfo.AudioUrl); err != nil {
-		if err := DownloadFile(audioPath, videoInfo.OldAudioUrl); err != nil {
-			return err, "" // return the error and an empty string
-		}
-	}
-	cmd := exec.Command("ffmpeg", "-i", dashPath, "-i", audioPath, "-c:v", "copy", "-c:a", "copy", outputPath) // create the command
-	if err := cmd.Run(); err != nil {
-		return err, "" // return the error and an empty string
-	}
-	time.Sleep(1 * time.Second) // wait for 1 second
-
-	if err := os.Remove(dashPath); err != nil { // Delete the unused file.
-		// Ignore the error
-		log.Fatal(err)
-	}
-
-	if err := os.Remove(audioPath); err != nil { // Delete the unused file.
-		// Ignore the error
-		log.Fatal(err)
-	}
-
-	created, err := database.Post.CreateOne(
-		db.Post.ID.Set(response[0].Data.Children[0].Data.Id),
-		db.Post.PostTitle.Set(response[0].Data.Children[0].Data.Title),
-		db.Post.Thumbnail.Set(strings.Replace(response[0].Data.Children[0].Data.Thumbnail, "amp;", "", -1)),
-		db.Post.PostURL.Set(uri),
-	).Exec(ctx) // create a new post
-	_ = created // ignore the created object
-
-	if err != nil {
-		return err, "" // return the error and an empty string
-	}
-	return nil, response[0].Data.Children[0].Data.Id
+	return errors.New("Bu bir video değil."), ""
 }
 
 const VIDEO_PER_PAGE = 50 // how much videos will be shown in /retrieveLatest
@@ -253,6 +270,9 @@ func RetrieveLatestVideos(page int) (error, []db.PostModel) {
 	}
 
 	posts = DeleteNsfwPosts(posts) // Delete the "nsfw" and "default" posts from array.
+	for i, _ := range posts {
+		posts[i].DownloadedIP = "" // remove downloader ip
+	}
 
 	return nil, posts // return the error and the posts
 }

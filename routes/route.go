@@ -33,7 +33,7 @@ func DownloadVideo(c echo.Context) error {
 		})
 	}
 
-	err, path := util.DownloadRedditVideo(downloadBody.Url)
+	err, path := util.DownloadRedditVideo(downloadBody.Url, c.RealIP())
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{

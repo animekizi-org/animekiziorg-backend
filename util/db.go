@@ -3,7 +3,7 @@ package util
 import (
 	"context"
 	"log"
-	"main/db"
+	"main/prisma/db"
 )
 
 var database = db.NewClient()

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"main/db"
+	"main/prisma/db"
 	"main/routes"
 	"main/util"
 	"os"
@@ -14,6 +14,7 @@ import (
 )
 
 func CheckVideos() {
+
 	for {
 		posts, err := util.ReturnDatabase().Post.FindMany().Exec(*util.ReturnContext())
 		if err != nil {
@@ -47,7 +48,6 @@ func main() {
 
 	app := echo.New()
 
-	//app.Use(middleware.Logger())  // logger
 	app.Use(middleware.Recover()) // recovers from errors
 	app.Use(middleware.CORS())    // cors
 
