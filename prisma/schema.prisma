@@ -1,0 +1,20 @@
+datasource db {
+  // could be postgresql or mysql
+  provider = "postgres"
+  url      = "postgres://postgres:root@postgres/reddit_downloader_migrate"
+}
+ 
+generator db {
+  provider = "go run github.com/steebchen/prisma-client-go"
+}
+ 
+model Post {
+    id        String      @unique
+    post_title     String
+    thumbnail String
+    date DateTime @default(now())
+    post_url String
+    author String
+    subreddit String
+    downloaded_ip String
+}

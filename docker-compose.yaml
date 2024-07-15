@@ -1,0 +1,28 @@
+version: '3'
+services:
+  backend:
+    image: golang
+    working_dir: /backend
+    volumes:
+      - ./:/backend
+    ports:
+      - "1337:1337"
+    command: bash -c "apt update && apt install ffmpeg -y && go mod download && go run github.com/steebchen/prisma-client-go generate && go run github.com/steebchen/prisma-client-go db push -y && go run main.go"
+    networks:
+      - common
+  postgres:
+      image: postgres:latest
+      environment:
+        POSTGRES_DB: reddit_downloader_migrate
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: root
+      volumes:
+        - ./pg-data:/var/lib/postgresql/data
+      networks:
+        - common
+
+
+
+
+networks:
+  common:

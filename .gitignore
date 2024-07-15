@@ -10,6 +10,7 @@
 # Test binary, built with `go test -c`
 *.test
 .env
+pg-data/
 
 #Remove all .mp4 files in tmp
 tmp/**/*.mp4
