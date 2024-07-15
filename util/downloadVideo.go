@@ -253,6 +253,7 @@ func DownloadRedditVideo(uri string, downloadIp string) (error, string) {
 		if err != nil {
 			return err, "" // return the error and an empty string
 		}
+
 		return nil, response[0].Data.Children[0].Data.Id
 	}
 

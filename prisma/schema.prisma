@@ -1,5 +1,4 @@
 datasource db {
-  // could be postgresql or mysql
   provider = "postgres"
   url      = "postgres://postgres:root@postgres/reddit_downloader_migrate"
 }

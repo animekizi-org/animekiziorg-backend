@@ -51,10 +51,10 @@ func main() {
 	app.Use(middleware.Recover()) // recovers from errors
 	app.Use(middleware.CORS())    // cors
 
-	app.POST("/api/download", routes.DownloadVideo)
-	app.GET("/api/videos/:videoId", routes.GetVideo)
-	app.GET("/api/retrieveLatest", routes.RetrieveLatestVideos)
-	app.GET("/api/deleteVideo", routes.DeleteEntry)
+	app.POST("/api/download", routes.DownloadVideo)             // POST /api/download
+	app.GET("/api/videos/:videoId", routes.GetVideo)            //POST /api/videos/:videoId
+	app.GET("/api/retrieveLatest", routes.RetrieveLatestVideos) //POST /api/retrieveLatest
+	app.GET("/api/deleteVideo", routes.DeleteEntry)             //POST /api/deleteVideo
 
 	app.Logger.Fatal(app.Start(":1337"))
 }

@@ -61,6 +61,8 @@ func DownloadVideo(c echo.Context) error {
 			"date":      post.Date,
 			"url":       post.PostURL,
 			"thumbnail": post.Thumbnail,
+			"author":    post.Author,
+			"subreddit": post.Subreddit,
 		},
 	})
 }
