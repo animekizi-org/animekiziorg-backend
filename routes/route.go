@@ -25,7 +25,6 @@ func init() {
 
 func DownloadVideo(c echo.Context) error {
 	var downloadBody DownloadBody
-	ipAddress := c.QueryParam("ip")
 
 	if err := c.Bind(&downloadBody); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
@@ -34,7 +33,7 @@ func DownloadVideo(c echo.Context) error {
 		})
 	}
 
-	err, path := util.DownloadRedditVideo(downloadBody.Url, ipAddress)
+	err, path := util.DownloadRedditVideo(downloadBody.Url, c.RealIP())
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
